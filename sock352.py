@@ -16,6 +16,8 @@ SOCK352_ACK = 0x04
 SOCK352_RESET = 0x08
 SOCK352_HAS_OPT = 0xA0
 
+s = None
+
 # this init function is global to the class and
 # defines the UDP ports all messages are sent
 # and received from.
@@ -53,8 +55,7 @@ class socket:
     def bind(self,address): #not needed for part1
         return 
 	
-    def connect(self,address):  # fill in your code here
-
+    def connect(self,address):
         #global source_port  
         # example using a variable global to the Python module
         #  create a new sequence number
@@ -81,10 +82,20 @@ class socket:
                                        payload_len)
 		
         while True:
+            #   add the packet to the outbound queue
+            s.sendto(header, address)
+            print 'message was sent'
+            #   set the timeout
+            #sendSock.settimeout(0.2)
             try:
-                #   add the packet to the outbound queue
-                #   set the timeout
-                #      wait for the return SYN
+                data, server = s.recvfrom(1024)
+                 #      wait for the return SYN
+                a,flags,c,d,e,f,g,h,i,ack,k,l = struct.unpack(sock352PktHdrData, data)
+                if flags & 0x1 == 1 and ack == 1:
+                    print 'connected'
+                    return
+                #sendSock.settimeout(0.0)      
+               
                 break
             except timeout:
                 continue
@@ -101,7 +112,26 @@ class socket:
         (clientsocket, address) = (1,1)  # change this to your code 
         # call  __sock352_get_packet() until we get a new conection
         # check the the connection list - did we see a new SYN packet?
-        return (clientsocket,address)
+        packetHeader = struct.Struct(headerFormat)
+        
+        while True:
+            data, address = s.recvfrom(1024)
+            a,FLAGS,c,d,e,f,g,h,seq,j,k,l = struct.unpack(sock352PktHdrData, data)
+            if FLAGS & 0x1 == 1:
+                print 'connected to client 1'
+                ACK_NO = seq + 1
+                SEQUENCE_NO = random.randint(0, 999999)
+                FLAGS |= 0x4
+                header = packetHeader.pack(VERSION, FLAGS, OPT_PTR, PROTOCOL, HEADER_LEN, 
+                                               CHECKSUM, SOURCE_PORT, DEST_PORT,
+                                               SEQUENCE_NO+1, ACK_NO, WINDOW, PAYLOAD_LEN)
+                s.sendto(header, address)
+                data, address = s.recvfrom(1024)
+                a,FLAGS,c,d,e,f,g,h,seq,ack,k,l = struct.unpack(sock352PktHdrData, data)
+                if FLAGS == 1 and seq == SEQUENCE_NO+1:
+                    print 'connected to client success'
+                    connections.append(address)
+                    return address
     
     def close(self):   # fill in your code here 
         # send a FIN packet (flags with FIN bit set)
